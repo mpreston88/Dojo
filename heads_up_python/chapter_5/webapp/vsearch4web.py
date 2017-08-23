@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request
 from vsearch import search_for_letters
-from heads_up_python.chapter_9.DBcm import UseDatabase
+from DBcm import UseDatabase
 
 app = Flask(__name__)
 
@@ -46,8 +46,8 @@ def entry_page() -> 'html':
 @app.route('/viewlog')
 def view_the_log() -> 'html':
     with UseDatabase(app.config['dbconfig']) as cursor:
-        _SQL = """SELECT phrase, letters, ip, browser_string, results,
-                  FROM log"""
+        _SQL = """SELECT phrase, letters, ip, broswer_string, results
+                  FROM log;"""
         cursor.execute(_SQL)
         contents = cursor.fetchall()
     titles = ('Phrase', 'Letters', 'Remote_addr', 'User_agent', 'Results')
