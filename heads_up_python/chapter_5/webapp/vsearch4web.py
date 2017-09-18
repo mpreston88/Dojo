@@ -13,16 +13,19 @@ app.config['dbconfig'] = {'host': '127.0.0.1',
 
 
 def log_request(req: 'flask_request', res: str) -> None:
-    with UseDatabase(app.config['dbconfig']) as cursor:
-        _SQL = """INSERT INTO log
-              (phrase, letters, ip, broswer_string, results)
-              VALUES
-              (%s, %s, %s, %s, %s)"""
-        cursor.execute(_SQL, (req.form['phrase'],
-                              req.form['letters'],
-                              req.remote_addr,
-                              req.user_agent.browser,
-                              res, ))
+    try:
+        with UseDatabase(app.config['dbconfig']) as cursor:
+            _SQL = """INSERT INTO log
+                  (phrase, letters, ip, broswer_string, results)
+                  VALUES
+                  (%s, %s, %s, %s, %s)"""
+            cursor.execute(_SQL, (req.form['phrase'],
+                                  req.form['letters'],
+                                  req.remote_addr,
+                                  req.user_agent.browser,
+                                  res, ))
+    except Exception as err:
+        print('Something went wrong', str(err))
 
 
 @app.route('/login')
@@ -43,7 +46,10 @@ def do_search() -> 'html':
     letters = request.form['letters']
     results = str(search_for_letters(phrase, letters))
     title = 'Here are your results:'
-    log_request(request, results)
+    try:
+        log_request(request, results)
+    except Exception as err:
+        print('*****Logging failed with this error:', str(err))
     return render_template('results.html',
                            the_title=title,
                            the_results=results,
