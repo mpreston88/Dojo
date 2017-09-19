@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request, session, copy_current_request_context
 from vsearch import search_for_letters
 from DBcm import UseDatabase, ConnectionError, CredentialsError, SQLError
 from checker import check_logged_in
+from threading import Thread
 
 app = Flask(__name__)
 app.secret_key = 'YouWillNeverGuessMySecret'
@@ -12,20 +13,7 @@ app.config['dbconfig'] = {'host': '127.0.0.1',
                           'database': 'vsearchlogDB', }
 
 
-def log_request(req: 'flask_request', res: str) -> None:
-    try:
-        with UseDatabase(app.config['dbconfig']) as cursor:
-            _SQL = """INSERT INTO log
-                  (phrase, letters, ip, broswer_string, results)
-                  VALUES
-                  (%s, %s, %s, %s, %s)"""
-            cursor.execute(_SQL, (req.form['phrase'],
-                                  req.form['letters'],
-                                  req.remote_addr,
-                                  req.user_agent.browser,
-                                  res, ))
-    except Exception as err:
-        print('Something went wrong', str(err))
+
 
 
 @app.route('/login')
@@ -42,12 +30,30 @@ def logout() -> str:
 
 @app.route('/search4', methods=['POST'])
 def do_search() -> 'html':
+
+    @copy_current_request_context
+    def log_request(req: 'flask_request', res: str) -> None:
+        try:
+            with UseDatabase(app.config['dbconfig']) as cursor:
+                _SQL = """INSERT INTO log
+                      (phrase, letters, ip, broswer_string, results)
+                      VALUES
+                      (%s, %s, %s, %s, %s)"""
+                cursor.execute(_SQL, (req.form['phrase'],
+                                      req.form['letters'],
+                                      req.remote_addr,
+                                      req.user_agent.browser,
+                                      res, ))
+        except Exception as err:
+            print('Something went wrong', str(err))
+
     phrase = request.form['phrase']
     letters = request.form['letters']
     results = str(search_for_letters(phrase, letters))
     title = 'Here are your results:'
     try:
-        log_request(request, results)
+        t = Thread(target=log_request, args=(request, results))
+        t.start()
     except Exception as err:
         print('*****Logging failed with this error:', str(err))
     return render_template('results.html',
